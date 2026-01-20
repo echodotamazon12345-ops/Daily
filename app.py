@@ -28,7 +28,7 @@ else:
 # --------------------
 st.sidebar.title("🤖 Daily Question")
 
-openai.api_key = st.secrets.get("OPENAI_API_KEY", "")
+
 
 def ai_question():
     if not openai.api_key:
