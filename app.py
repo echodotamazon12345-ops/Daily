@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import date
-import openai
+from openai import OpenAI
 import os
 
 # --------------------
