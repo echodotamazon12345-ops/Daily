@@ -15,7 +15,7 @@ TODAY = str(date.today())
 DATA_FILE = "habits.csv"
 
 # --------------------
-# LOAD DATA
+# LOAD / CREATE DATA
 # --------------------
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
@@ -24,22 +24,32 @@ else:
     df.to_csv(DATA_FILE, index=False)
 
 # --------------------
-# SIDEBAR (AI)
+# AI QUESTION FUNCTION
 # --------------------
-st.sidebar.title("🤖 Daily Question")
-
-
-
 def ai_question():
-    if not openai.api_key:
-        return "Add your OpenAI key to get AI questions!"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+    api_key = st.secrets.get("OPENAI_API_KEY")
+
+    if not api_key:
+        return "⚠️ Add your OpenAI API key in Streamlit Secrets"
+
+    client = OpenAI(api_key=api_key)
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "Ask one short daily self-improvement question."}
+            {
+                "role": "system",
+                "content": "Ask one short, friendly daily self-improvement question."
+            }
         ]
     )
+
     return response.choices[0].message.content
+
+# --------------------
+# SIDEBAR (AI)
+# --------------------
+st.sidebar.title("🤖 Daily AI Question")
 
 if st.sidebar.button("Ask AI"):
     st.sidebar.success(ai_question())
@@ -49,31 +59,34 @@ if st.sidebar.button("Ask AI"):
 # --------------------
 st.subheader("➕ Add a Habit")
 
-new_habit = st.text_input("Habit name (ex: Gym, Read)")
+new_habit = st.text_input("Habit name (example: Gym, Read)")
 
 if st.button("Add Habit"):
-    if new_habit.strip() != "":
-        st.success("Habit added!")
+    if new_habit.strip() == "":
+        st.error("Please type a habit name")
     else:
-        st.error("Type something first")
+        st.success(f"Habit '{new_habit}' added!")
 
 # --------------------
 # TODAY'S HABITS
 # --------------------
-st.subheader("✅ Today")
+st.subheader("✅ Mark Habit as Done Today")
 
 habits = df["Habit"].unique()
 
+if len(habits) == 0:
+    st.info("No habits yet. Add one above ☝️")
+
 for habit in habits:
-    col1, col2 = st.columns([3,1])
+    col1, col2 = st.columns([3, 1])
 
     with col1:
         st.write(habit)
 
     with col2:
-        if st.button("Done", key=f"{habit}_done"):
+        if st.button("Done", key=f"done_{habit}"):
             new_row = {"Habit": habit, "Date": TODAY}
-            df = pd.concat([df, pd.DataFrame([new_row])])
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             df.to_csv(DATA_FILE, index=False)
             st.rerun()
 
@@ -82,22 +95,28 @@ for habit in habits:
 # --------------------
 st.subheader("❌ Delete a Habit")
 
-delete_habit = st.selectbox("Choose habit", habits)
+if len(habits) > 0:
+    delete_habit = st.selectbox("Choose a habit to delete", habits)
 
-if st.button("Delete"):
-    df = df[df["Habit"] != delete_habit]
-    df.to_csv(DATA_FILE, index=False)
-    st.warning("Habit deleted")
-    st.rerun()
+    if st.button("Delete Habit"):
+        df = df[df["Habit"] != delete_habit]
+        df.to_csv(DATA_FILE, index=False)
+        st.warning(f"Habit '{delete_habit}' deleted")
+        st.rerun()
 
 # --------------------
-# CHART
+# PROGRESS CHART
 # --------------------
-st.subheader("📊 Progress")
+st.subheader("📊 Progress Chart")
 
 if not df.empty:
     chart_df = df.groupby("Habit").count().reset_index()
-    fig = px.bar(chart_df, x="Habit", y="Date", title="Habit Completions")
+    fig = px.bar(
+        chart_df,
+        x="Habit",
+        y="Date",
+        title="Habit Completions"
+    )
     st.plotly_chart(fig, use_container_width=True)
 else:
-    st.info("No data yet!")
+    st.info("No progress yet!")
